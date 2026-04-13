@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Cart - Mock Grocery</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <header>
+        <h1>Your Shopping Cart</h1>
+        <a href="/" id="nav-home" class="nav-btn">Home</a>
+    </header>
+    
+    <main>
+        <div class="cart-container" style="background: white; padding: 20px; border-radius: 10px;">
+            <h2>Items in Cart</h2>
+            <ul>
+                <li>Fresh Apples - £2.50</li>
+            </ul>
+            <h3>Total: £3.50</h3>
+            <!-- Changed to trigger the completeCheckout state-clearing function -->
+            <button id="checkout-btn" class="action-btn" style="background-color: #28a745;" onclick="completeCheckout()">Proceed to Secure Checkout</button>
+        </div>
+    </main>
+
+    <div id="guidance-panel" aria-live="polite">
+        <p id="guidance-text">Loading guidance...</p>
+    </div>
+    <script src="/static/js/dom_parser.js"></script>
+</body>
+</html>
