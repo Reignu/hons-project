@@ -12,16 +12,16 @@ CORS(app, resources={r"/api/*": {"origins": ["https://goldenfreshcart.ibithun.co
 
 current_audio_process = None
 
-def speak_text(text):
-    global current_audio_process
-    try:
-        # If a previous audio process is still running, kill it before starting the new one
-        if current_audio_process is not None and current_audio_process.poll() is None:
-            current_audio_process.kill()
+# def speak_text(text):
+#     global current_audio_process
+#     try:
+#         # If a previous audio process is still running, kill it before starting the new one
+#         if current_audio_process is not None and current_audio_process.poll() is None:
+#             current_audio_process.kill()
         
-        current_audio_process = subprocess.Popen(['say', text])
-    except Exception as e:
-        print(f"Speech error: {e}")
+#         current_audio_process = subprocess.Popen(['say', text])
+#     except Exception as e:
+#         print(f"Speech error: {e}")
 
 # 2. Add 'OPTIONS' to accepted methods to handle CORS Preflight
 @app.route('/api/guide', methods=['POST', 'OPTIONS'])

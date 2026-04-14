@@ -7,19 +7,16 @@ let extractionTimer = null;
 function injectHelperUI() {
     if (document.getElementById('guidance-panel')) return;
 
-    // 1. Create the main container panel (Now a bottom-right floating widget!)
     const panel = document.createElement('div');
     panel.id = 'guidance-panel';
     panel.style.cssText = "position: fixed; bottom: 20px; right: 20px; width: 350px; background-color: #e2f0d9; border: 4px solid #4caf50; border-radius: 12px; padding: 20px; z-index: 1001; font-size: 16px; font-weight: bold; box-sizing: border-box; transition: height 0.3s; box-shadow: 0px 4px 15px rgba(0,0,0,0.2);";
 
-    // 2. Add the Guidance Text
     const textDiv = document.createElement('div');
     textDiv.id = 'guidance-text';
     textDiv.innerText = "Guide: I am here to help. What would you like to buy?";
-    textDiv.style.marginTop = "15px"; // Push down slightly to clear the collapse button
+    textDiv.style.marginTop = "15px"; 
     panel.appendChild(textDiv);
 
-    // 3. Add the input box and buttons (Resized to fit the 350px widget)
     const goalContainer = document.createElement('div');
     goalContainer.id = 'goal-container';
     goalContainer.style.marginTop = "10px";
@@ -50,7 +47,6 @@ function injectHelperUI() {
 
     panel.appendChild(goalContainer);
     
-    // 4. Add the Single Collapsible Toggle Button
     const toggleBtn = document.createElement('button');
     toggleBtn.innerText = "➖ Collapse";
     toggleBtn.style.cssText = "position:absolute; top:5px; right:5px; cursor:pointer; font-size: 12px; padding: 2px 5px;";
@@ -71,7 +67,6 @@ function injectHelperUI() {
     document.body.appendChild(panel);
 }
 
-// Execute injection immediately
 injectHelperUI();
 
 function scheduleExtraction(isStruggling = false) {
@@ -221,12 +216,8 @@ function extractAndSendDOM(isStruggling = false) {
     })
     .then(response => response.json())
     .then(data => {
-        if ('speechSynthesis' in window && data.instruction) {
-            const utterance = new SpeechSynthesisUtterance(data.instruction);
-            utterance.onstart = () => console.log(`[${new Date().toISOString()}] Audio playback started`);
-            window.speechSynthesis.speak(utterance);
-        }
-        
+        console.log("LLM Command Received:", data);
+
         const guidanceEl = document.getElementById('guidance-text');
         if (guidanceEl) {
             guidanceEl.innerText = "Guide: " + data.instruction;
@@ -239,17 +230,29 @@ function extractAndSendDOM(isStruggling = false) {
             el.classList.remove('mci-highlight-focus', 'mci-highlight-struggle'); 
         });
 
-        if (data.target_id) {
-            let targetElement = document.getElementById(data.target_id);
-            
-            if (!targetElement && data.target_id.includes('mci-element-')) {
-                targetElement = Array.from(document.querySelectorAll('button, a, input'))
-                    .find(el => el.innerText && el.innerText.includes(data.target_id.replace('mci-element-', ''))); 
-            }
+        let targetElement = document.getElementById(data.target_id);
+        if (!targetElement && data.target_id && data.target_id.includes('mci-element-')) {
+            targetElement = Array.from(document.querySelectorAll('button, a, input'))
+                .find(el => el.innerText && el.innerText.includes(data.target_id.replace('mci-element-', ''))); 
+        }
 
+        if ('speechSynthesis' in window && data.instruction) {
+            const utterance = new SpeechSynthesisUtterance(data.instruction);
+            
+            utterance.onstart = () => {
+                console.log(`[${new Date().toISOString()}] Audio playback started`);
+                
+                if (targetElement) {
+                    targetElement.classList.add('mci-highlight-focus');
+                    console.log(`[${new Date().toISOString()}] CSS masking applied to ${targetElement.id}`);
+                    if (isStruggling) targetElement.classList.add('mci-highlight-struggle');
+                }
+            };
+            
+            window.speechSynthesis.speak(utterance);
+        } else {
             if (targetElement) {
                 targetElement.classList.add('mci-highlight-focus');
-                console.log(`[${new Date().toISOString()}] CSS masking applied to ${targetElement.id}`);
                 if (isStruggling) targetElement.classList.add('mci-highlight-struggle');
             }
         }
