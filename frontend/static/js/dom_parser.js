@@ -1,5 +1,6 @@
 let currentTargetId = null; 
-let misclickCount = 0; 
+let misclickCount = 0;
+let lastMisclickTime = 0;
 let shoppingList = JSON.parse(localStorage.getItem('mci_shopping_list') || '[]');
 let lastPath = window.location.pathname; 
 let extractionTimer = null;
@@ -138,12 +139,17 @@ function clearList() {
 }
 
 document.addEventListener('click', (e) => { 
-    if (e.target.closest('#guidance-panel') || e.target.closest('#goal-container')) return;
+    if (!currentTargetId) return;
+
+    // TEST 3.5: Prevent event bubbling
+    e.stopPropagation();
 
     const clickedElement = e.target;
-    const targetElement = currentTargetId ? document.getElementById(currentTargetId) : null;
+    const targetElement = document.getElementById(currentTargetId);
 
+    // 1. TEST 3.2: Check for SUCCESS first!
     if (targetElement && (clickedElement === targetElement || targetElement.contains(clickedElement))) {
+        console.log("Correct element clicked! Moving to next step...");
         misclickCount = 0; 
         currentTargetId = null; 
 
@@ -152,16 +158,38 @@ document.addEventListener('click', (e) => {
         });
 
         scheduleExtraction(false);
-
-    } else if (currentTargetId) {
-        misclickCount++;
-        if (misclickCount >= 3) {
-            const guidanceEl = document.getElementById('guidance-text');
-            if (guidanceEl) guidanceEl.innerText = "Guide: Recalculating simpler steps...";
-            extractAndSendDOM(true); 
-        }
+        return; // Exit successfully so the script stops here
     }
-});
+
+    // 2. NOW safely ignore stray clicks on the Helper UI so they don't count as errors
+    if (e.target.closest('#guidance-panel') || e.target.closest('#goal-container')) {
+        return; 
+    }
+
+    // 3. TEST 3.4: Debounce rapid frustration clicking (800ms)
+    const currentTime = new Date().getTime();
+    if (currentTime - lastMisclickTime < 800) {
+        console.log("Rapid frustration click ignored (debounced).");
+        return; 
+    }
+    lastMisclickTime = currentTime;
+
+    // 4. TEST 3.1: Track genuine misclicks
+    misclickCount++;
+    console.log("Misclick detected. Current count: " + misclickCount);
+
+    // 5. TEST 3.3: Trigger Strict Guidance
+    if (misclickCount >= 3) {
+        console.log("Cognitive overload detected! Transitioning to Strict Guidance state...");
+        
+        const guidanceEl = document.getElementById('guidance-text');
+        if (guidanceEl) {
+            guidanceEl.innerText = "Guide: Let me simplify this for you...";
+        }
+        
+        scheduleExtraction(true); 
+    }
+}, true);
 
 function performSearch(event) { 
     if (event) event.preventDefault(); 
@@ -189,18 +217,20 @@ function completeCheckout() {
 }
 
 function extractAndSendDOM(isStruggling = false) { 
-    const elements = Array.from(document.querySelectorAll('button, a, input')).map((el, index) => { 
-        if (!el.id) { 
-            el.id = 'mci-element-' + index; 
-        } 
-        let valueText = el.value ? ` (User has currently typed: '${el.value}')` : ''; 
-        return { 
-            id: el.id, 
-            tag: el.tagName, 
-            text: (el.innerText || el.placeholder || '') + valueText, 
-            ariaLabel: el.getAttribute('aria-label') || '' 
-        }; 
-    });
+    const elements = Array.from(document.querySelectorAll('button, a, input'))
+        .filter(el => !el.closest('#guidance-panel')) // ADD THIS FILTER BACK IN
+        .map((el, index) => { 
+            if (!el.id) { 
+                el.id = 'mci-element-' + index; 
+            } 
+            let valueText = el.value ? ` (User has currently typed: '${el.value}')` : ''; 
+            return { 
+                id: el.id, 
+                tag: el.tagName, 
+                text: (el.innerText || el.placeholder || '') + valueText, 
+                ariaLabel: el.getAttribute('aria-label') || '' 
+            }; 
+        });
 
     fetch('http://127.0.0.1:5000/api/guide', {
         method: 'POST',
