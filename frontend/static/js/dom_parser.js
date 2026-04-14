@@ -153,6 +153,7 @@ function extractAndSendDOM(isStruggling = false) {
     .then(data => {
         if ('speechSynthesis' in window && data.instruction) {
             const utterance = new SpeechSynthesisUtterance(data.instruction);
+            utterance.onstart = () => console.log(`[${new Date().toISOString()}] Audio playback started`);
             window.speechSynthesis.speak(utterance);
         }
         
@@ -178,6 +179,7 @@ function extractAndSendDOM(isStruggling = false) {
 
             if (targetElement) {
                 targetElement.classList.add('mci-highlight-focus');
+                console.log(`[${new Date().toISOString()}] CSS masking applied to ${targetElement.id}`);
                 if (isStruggling) targetElement.classList.add('mci-highlight-struggle');
             }
         }
@@ -186,6 +188,26 @@ function extractAndSendDOM(isStruggling = false) {
         const guidanceEl = document.getElementById('guidance-text');
         if (guidanceEl) {
             guidanceEl.innerText = "Guide: Connection to helper lost.";
+        }
+    });
+}
+
+const panel = document.getElementById('guidance-panel');
+if (panel) {
+    const toggleBtn = document.createElement('button');
+    toggleBtn.innerText = "➖ Collapse";
+    toggleBtn.style.cssText = "position:absolute; top:5px; right:5px; cursor:pointer;";
+    panel.appendChild(toggleBtn);
+
+    toggleBtn.addEventListener('click', () => {
+        if (panel.style.height === "40px") {
+            panel.style.height = "auto";
+            panel.style.overflow = "visible";
+            toggleBtn.innerText = "➖ Collapse";
+        } else {
+            panel.style.height = "40px";
+            panel.style.overflow = "hidden";
+            toggleBtn.innerText = "➕ Expand Helper";
         }
     });
 }
