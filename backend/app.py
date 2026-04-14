@@ -86,6 +86,10 @@ def generate_guidance():
         instruction = parsed_instruction.get("instruction", "Follow the highlighted step.")
         target_id = parsed_instruction.get("target_id", "")
         
+        # Catch LLM array hallucinations
+        if isinstance(target_id, list) and len(target_id) > 0:
+            target_id = target_id[0]  # Force it to only take the first element
+        
         return jsonify({"instruction": instruction, "target_id": target_id})
     except Exception as e:
         return jsonify({"instruction": "I am here to help.", "target_id": ""})
