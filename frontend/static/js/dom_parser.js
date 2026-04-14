@@ -138,16 +138,17 @@ function clearList() {
     extractAndSendDOM(false); 
 }
 
+// Actively monitor user performance and cursor clicks
 document.addEventListener('click', (e) => { 
     if (!currentTargetId) return;
 
-    // TEST 3.5: Prevent event bubbling
+    // Prevent event bubbling from inflating error counts
     e.stopPropagation();
 
     const clickedElement = e.target;
     const targetElement = document.getElementById(currentTargetId);
 
-    // 1. TEST 3.2: Check for SUCCESS first!
+    // Check for successful interaction
     if (targetElement && (clickedElement === targetElement || targetElement.contains(clickedElement))) {
         console.log("Correct element clicked! Moving to next step...");
         misclickCount = 0; 
@@ -161,12 +162,12 @@ document.addEventListener('click', (e) => {
         return; // Exit successfully so the script stops here
     }
 
-    // 2. NOW safely ignore stray clicks on the Helper UI so they don't count as errors
+    // Safely ignore stray clicks on the Helper UI so they don't count as errors
     if (e.target.closest('#guidance-panel') || e.target.closest('#goal-container')) {
         return; 
     }
 
-    // 3. TEST 3.4: Debounce rapid frustration clicking (800ms)
+    // Debounce rapid frustration clicking (800ms)
     const currentTime = new Date().getTime();
     if (currentTime - lastMisclickTime < 800) {
         console.log("Rapid frustration click ignored (debounced).");
@@ -174,11 +175,11 @@ document.addEventListener('click', (e) => {
     }
     lastMisclickTime = currentTime;
 
-    // 4. TEST 3.1: Track genuine misclicks
+    // Track genuine misclicks
     misclickCount++;
     console.log("Misclick detected. Current count: " + misclickCount);
 
-    // 5. TEST 3.3: Trigger Strict Guidance
+    // Trigger Strict Guidance
     if (misclickCount >= 3) {
         console.log("Cognitive overload detected! Transitioning to Strict Guidance state...");
         
@@ -218,7 +219,7 @@ function completeCheckout() {
 
 function extractAndSendDOM(isStruggling = false) { 
     const elements = Array.from(document.querySelectorAll('button, a, input'))
-        .filter(el => !el.closest('#guidance-panel')) // ADD THIS FILTER BACK IN
+        .filter(el => !el.closest('#guidance-panel'))
         .map((el, index) => { 
             if (!el.id) { 
                 el.id = 'mci-element-' + index; 
