@@ -1,14 +1,32 @@
 let currentTargetId = null; 
 let misclickCount = 0; 
 let shoppingList = JSON.parse(localStorage.getItem('mci_shopping_list') || '[]');
+let lastPath = window.location.pathname; 
+let extractionTimer = null;
 
-const observer = new MutationObserver((mutations, obs) => { 
+function scheduleExtraction(isStruggling = false) {
+    if (extractionTimer) clearTimeout(extractionTimer);
+    
+    extractionTimer = setTimeout(() => {
+        updateVisualList();
+        extractAndSendDOM(isStruggling);
+    }, 1000);
+}
+
+setTimeout(() => {
     if (document.querySelector('.product-card') || document.querySelector('button')) { 
         updateVisualList(); 
         extractAndSendDOM(false); 
-        obs.disconnect(); 
+    }
+}, 1000);
+
+const observer = new MutationObserver((mutations) => { 
+    if (window.location.pathname !== lastPath) {
+        lastPath = window.location.pathname;
+        scheduleExtraction(false);
     } 
 }); 
+
 observer.observe(document.body, { childList: true, subtree: true });
 
 function updateVisualList() { 
@@ -35,8 +53,9 @@ function addItem() {
         updateVisualList(); 
         
         const guidanceEl = document.getElementById('guidance-text');
-        if (guidanceEl) guidanceEl.innerText = "Guide: Adding item..."; 
-        
+        if (guidanceEl) {
+            guidanceEl.innerText = "Guide: Adding item..."; 
+        }
         extractAndSendDOM(false); 
     } 
 }
@@ -47,28 +66,34 @@ function clearList() {
     updateVisualList(); 
     
     const guidanceEl = document.getElementById('guidance-text');
-    if (guidanceEl) guidanceEl.innerText = "Guide: List cleared. What would you like to buy?"; 
-    
+    if (guidanceEl) {
+        guidanceEl.innerText = "Guide: List cleared. What would you like to buy?"; 
+    }
     extractAndSendDOM(false); 
 }
 
 document.addEventListener('click', (e) => { 
-    // Ignore clicks on the helper UI itself
     if (e.target.closest('#guidance-panel') || e.target.closest('#goal-container')) return;
-    
-    // Misclick tracking logic
-    if (currentTargetId) {
-        if (e.target.id === currentTargetId) {
-            // Correct click: reset counter
-            misclickCount = 0;
-        } else {
-            // Wrong click: increment and check threshold
-            misclickCount++;
-            if (misclickCount >= 3) {
-                const guidanceEl = document.getElementById('guidance-text');
-                if (guidanceEl) guidanceEl.innerText = "Guide: Recalculating simpler steps...";
-                extractAndSendDOM(true); 
-            }
+
+    const clickedElement = e.target;
+    const targetElement = currentTargetId ? document.getElementById(currentTargetId) : null;
+
+    if (targetElement && (clickedElement === targetElement || targetElement.contains(clickedElement))) {
+        misclickCount = 0; 
+        currentTargetId = null; 
+
+        document.querySelectorAll('.mci-highlight-focus, .mci-highlight-struggle').forEach(el => {
+            el.classList.remove('mci-highlight-focus', 'mci-highlight-struggle'); 
+        });
+
+        scheduleExtraction(false);
+
+    } else if (currentTargetId) {
+        misclickCount++;
+        if (misclickCount >= 3) {
+            const guidanceEl = document.getElementById('guidance-text');
+            if (guidanceEl) guidanceEl.innerText = "Guide: Recalculating simpler steps...";
+            extractAndSendDOM(true); 
         }
     }
 });
@@ -90,7 +115,9 @@ function completeCheckout() {
     localStorage.removeItem('mci_user_goal'); 
     
     const guidanceEl = document.getElementById('guidance-text');
-    if (guidanceEl) guidanceEl.innerText = "Guide: Checkout complete! Well done."; 
+    if (guidanceEl) {
+        guidanceEl.innerText = "Guide: Checkout complete! Well done."; 
+    }
     
     alert("Task Successful! Returning to home page."); 
     window.location.href = '/'; 
@@ -122,28 +149,33 @@ function extractAndSendDOM(isStruggling = false) {
             current_path: window.location.pathname
         })
     })
-    .then(response => {
-        if (!response.ok) throw new Error('Network response was not ok');
-        return response.json();
-    })
+    .then(response => response.json())
     .then(data => {
-        console.log("LLM Command Received:", data);
+        if ('speechSynthesis' in window && data.instruction) {
+            const utterance = new SpeechSynthesisUtterance(data.instruction);
+            window.speechSynthesis.speak(utterance);
+        }
         
         const guidanceEl = document.getElementById('guidance-text');
         if (guidanceEl) {
-            guidanceEl.innerText = "Guide: " + (data.instruction || "Ready.");
+            guidanceEl.innerText = "Guide: " + data.instruction;
         }
 
         currentTargetId = data.target_id;
         misclickCount = 0; 
 
-        // Corrected selector string
         document.querySelectorAll('.mci-highlight-focus, .mci-highlight-struggle').forEach(el => {
             el.classList.remove('mci-highlight-focus', 'mci-highlight-struggle'); 
         });
 
         if (data.target_id) {
-            const targetElement = document.getElementById(data.target_id);
+            let targetElement = document.getElementById(data.target_id);
+            
+            if (!targetElement && data.target_id.includes('mci-element-')) {
+                targetElement = Array.from(document.querySelectorAll('button, a, input'))
+                    .find(el => el.innerText && el.innerText.includes(data.target_id.replace('mci-element-', ''))); 
+            }
+
             if (targetElement) {
                 targetElement.classList.add('mci-highlight-focus');
                 if (isStruggling) targetElement.classList.add('mci-highlight-struggle');
@@ -151,7 +183,6 @@ function extractAndSendDOM(isStruggling = false) {
         }
     })
     .catch(error => {
-        console.error('Error reaching Flask backend:', error);
         const guidanceEl = document.getElementById('guidance-text');
         if (guidanceEl) {
             guidanceEl.innerText = "Guide: Connection to helper lost.";
