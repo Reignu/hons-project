@@ -1,11 +1,13 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify
 import requests
 import json
 import subprocess
+from flask_cors import CORS
 
-app = Flask(__name__, 
-            template_folder='../frontend/templates', 
-            static_folder='../frontend/static')
+# 1. Initialise as a Pure API Backend (No templates needed)
+app = Flask(__name__)
+
+CORS(app, resources={r"/api/*": {"origins": ["https://goldenfreshcart.ibithun.com", "http://127.0.0.1:5500", "http://localhost:5500"]}}) # This allows the extension to talk to the backend
 
 current_audio_process = None
 
@@ -20,38 +22,33 @@ def speak_text(text):
     except Exception as e:
         print(f"Speech error: {e}")
 
-@app.route('/')
-def index():
-    return render_template('index.html')
-
-@app.route('/product')
-def product():
-    return render_template('product.html')
-
-@app.route('/milk')
-def milk():
-    return render_template('milk.html')
-
-@app.route('/cart')
-def cart():
-    return render_template('cart.html')
-
-@app.route('/api/guide', methods=['POST'])
+# 2. Add 'OPTIONS' to accepted methods to handle CORS Preflight
+@app.route('/api/guide', methods=['POST', 'OPTIONS'])
 def generate_guidance():
+    # Immediately catch and approve the browser's preflight check
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
     data = request.json
     dom_elements = data.get('elements', [])
+    
+    # 3. Print the payload length to the terminal so we can pass Test 1.1!
+    print(f"Extracted {len(dom_elements)} elements from the DOM!")
+    
     is_struggling = data.get('is_struggling', False)
     shopping_list = data.get('shopping_list', [])
     current_path = data.get('current_path', '/')
 
+    prompt_instructions = "Analyze the page elements and guide the user to the next logical step to complete their shopping."
+
     if is_struggling:
         prompt_instructions = "The user is struggling. Provide an EXTREMELY SIMPLE, DIRECT 5-word command telling them EXACTLY which element to click next."
     else:
-        if current_path == '/':
+        if current_path == '/' or '/shop' in current_path:
             if not shopping_list:
                 prompt_instructions = "The user's shopping list is empty. Tell them to type an item into the input box and click 'Add to List'."
             else:
-                first_item = shopping_list[0]
+                first_item = shopping_list
                 list_str = ", ".join(shopping_list)
                 prompt_instructions = f"""The user wants to buy: {list_str}. 
                 Tell them they can add another item, OR type '{first_item}' into the Search Bar to start shopping."""
@@ -75,6 +72,7 @@ def generate_guidance():
             "format": "json"
         }, timeout=10)
         llm_data = response.json()
+        print(f"DEBUG: Raw LLM response: {llm_data.get('response')}")
         parsed_instruction = json.loads(llm_data.get("response", "{}"))
         instruction = parsed_instruction.get("instruction", "Follow the highlighted step.")
         target_id = parsed_instruction.get("target_id", "")

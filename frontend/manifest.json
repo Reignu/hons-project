@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "MCI Assistive Helper",
+  "version": "1.0",
+  "description": "DOM-based AI assistant for Mild Cognitive Impairment",
+  "permissions": ["activeTab"],
+  "content_scripts": [
+    {
+      "matches": ["*://goldenfreshcart.ibithun.com/*", "*://localhost:*/*"],
+      "css": ["static/css/style.css"],
+      "js": ["static/js/dom_parser.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
